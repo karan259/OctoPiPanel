@@ -54,6 +54,8 @@ from pygame.locals import *
 from collections import deque
 from ConfigParser import RawConfigParser
  
+offset=40
+x_offset=80
 class OctoPiPanel():
     """
     @var done: anything can set to True to forcequit
@@ -74,7 +76,7 @@ class OctoPiPanel():
     if cfg.has_option('settings', 'window_width'):
         win_width = cfg.getint('settings', 'window_width')
     else:
-        win_width = 320
+        win_width = 320	
 
     if cfg.has_option('settings', 'window_height'):
         win_height = cfg.getint('settings', 'window_height')
@@ -92,16 +94,16 @@ class OctoPiPanel():
     #print apiurl_job + addkey
 
     graph_area_left   = 30 #6
-    graph_area_top    = 125
-    graph_area_width  = 285 #308
-    graph_area_height = 110
+    graph_area_top    = 180
+    graph_area_width  = 400 #308
+    graph_area_height = 120
 
     def __init__(self, caption="OctoPiPanel"):
         """
         .
         """
         self.done = False
-        self.color_bg = pygame.Color(41, 61, 70)
+        self.color_bg = pygame.Color(255, 255, 255)
 
         # Button settings
         self.buttonWidth = 100
@@ -119,6 +121,7 @@ class OctoPiPanel():
         self.JobLoaded = False
         self.Completion = 0 # In procent
         self.PrintTimeLeft = 0
+        self.PrintTime = 0
         self.Height = 0.0
         self.FileName = "Nothing"
         self.getstate_ticks = pygame.time.get_ticks()
@@ -151,9 +154,11 @@ class OctoPiPanel():
 
         # Set font
         #self.fntText = pygame.font.Font("Cyberbit.ttf", 12)
+        self.fntText_large = pygame.font.Font(os.path.join(self.scriptDirectory, "Cyberbit.ttf"), 30)
+        self.fntText_large.set_underline(True)
         self.fntText = pygame.font.Font(os.path.join(self.scriptDirectory, "Cyberbit.ttf"), 12)
         self.fntText.set_bold(True)
-        self.fntTextSmall = pygame.font.Font(os.path.join(self.scriptDirectory, "Cyberbit.ttf"), 10)
+        self.fntTextSmall = pygame.font.Font(os.path.join(self.scriptDirectory, "Cyberbit.ttf"), 12)
         self.fntTextSmall.set_bold(True)
 
         # backlight on off status and control
@@ -161,22 +166,22 @@ class OctoPiPanel():
         self.bglight_on = True
 
         # Home X/Y/Z buttons
-        self.btnHomeXY        = pygbutton.PygButton((  5,   5, 100, self.buttonHeight), "Home X/Y") 
-        self.btnHomeZ         = pygbutton.PygButton((  5,  35, 100, self.buttonHeight), "Home Z") 
-        self.btnZUp           = pygbutton.PygButton((110,  35, 100, self.buttonHeight), "Z +25") 
+        self.btnHomeXY        = pygbutton.PygButton((  5,   5+offset, 100, self.buttonHeight), "Home X/Y") 
+        self.btnHomeZ         = pygbutton.PygButton((  5,  35+offset, 100, self.buttonHeight), "Home Z") 
+        self.btnZUp           = pygbutton.PygButton((110+x_offset,  35+offset, 100, self.buttonHeight), "Z +25") 
 
         # Heat buttons
-        self.btnHeatBed       = pygbutton.PygButton((  5,  65, 100, self.buttonHeight), "Heat bed") 
-        self.btnHeatHotEnd    = pygbutton.PygButton((  5,  95, 100, self.buttonHeight), "Heat hot end") 
+        self.btnHeatBed       = pygbutton.PygButton((  5,  65+offset, 100, self.buttonHeight), "Heat bed") 
+        self.btnHeatHotEnd    = pygbutton.PygButton((  5,  95+offset, 100, self.buttonHeight), "Heat hot end") 
 
         # Start, stop and pause buttons
-        self.btnStartPrint    = pygbutton.PygButton((110,   5, 100, self.buttonHeight), "Start print") 
-        self.btnAbortPrint    = pygbutton.PygButton((110,   5, 100, self.buttonHeight), "Abort print", (200, 0, 0)) 
-        self.btnPausePrint    = pygbutton.PygButton((110,  35, 100, self.buttonHeight), "Pause print") 
+        self.btnStartPrint    = pygbutton.PygButton((110+x_offset,   5+offset, 100, self.buttonHeight), "Start print") 
+        self.btnAbortPrint    = pygbutton.PygButton((110,   5+offset, 100, self.buttonHeight), "Abort print", (200, 0, 0)) 
+        self.btnPausePrint    = pygbutton.PygButton((110,  35+offset, 100, self.buttonHeight), "Pause print") 
 
         # Shutdown and reboot buttons
-        self.btnReboot        = pygbutton.PygButton((215,   5, 100, self.buttonHeight), "Reboot");
-        self.btnShutdown      = pygbutton.PygButton((215,  35, 100, self.buttonHeight), "Shutdown");
+        self.btnReboot        = pygbutton.PygButton((215+2*x_offset,   5+offset, 100, self.buttonHeight), "Close");
+        self.btnShutdown      = pygbutton.PygButton((215+2*x_offset,  95+offset, 100, self.buttonHeight), "Shutdown");
 
         # I couldnt seem to get at pin 252 for the backlight using the usual method, 
         # but this seems to work
@@ -342,6 +347,7 @@ class OctoPiPanel():
             
                 self.Completion = jobState['progress']['completion'] # In procent
                 self.PrintTimeLeft = jobState['progress']['printTimeLeft']
+                self.PrintTime = jobState['progress']['printTime']
                 #self.Height = state['currentZ']
                 self.FileName = jobState['job']['file']['name']
                 self.JobLoaded = connState['current']['state'] == "Operational" and (jobState['job']['file']['name'] != "") or (jobState['job']['file']['name'] != None)
@@ -419,20 +425,29 @@ class OctoPiPanel():
 
         # Place temperatures texts
         lblHotEndTemp = self.fntText.render(u'Hot end: {0}\N{DEGREE SIGN}C ({1}\N{DEGREE SIGN}C)'.format(self.HotEndTemp, self.HotEndTempTarget), 1, (220, 0, 0))
-        self.screen.blit(lblHotEndTemp, (112, 60))
+        self.screen.blit(lblHotEndTemp, (112+x_offset, 60+offset))
+		
         lblBedTemp = self.fntText.render(u'Bed: {0}\N{DEGREE SIGN}C ({1}\N{DEGREE SIGN}C)'.format(self.BedTemp, self.BedTempTarget), 1, (0, 0, 220))
-        self.screen.blit(lblBedTemp, (112, 75))
+        self.screen.blit(lblBedTemp, (112+x_offset, 75+offset))
 
         # Place time left and compeltetion texts
         if self.JobLoaded == False or self.PrintTimeLeft == None or self.Completion == None:
             self.Completion = 0
             self.PrintTimeLeft = 0;
+            self.PrintTime = 0;
+        
+        lblPrintTimeLeft = self.fntText_large.render("PrinterBot - OctoPrint", 1, (0, 128, 0))
+        self.screen.blit(lblPrintTimeLeft, (100, 0))
+		
+        lblPrintTimeLeft = self.fntText.render("Print Time: {0}".format(datetime.timedelta(seconds = self.PrintTime)), 1, (0, 0, 0))
+        self.screen.blit(lblPrintTimeLeft, (112+x_offset, 90+offset))
+		
+        lblPrintTimeLeft = self.fntText.render("Time left: {0}".format(datetime.timedelta(seconds = self.PrintTimeLeft)), 1, (0, 0, 0))
+		
+        self.screen.blit(lblPrintTimeLeft, (112+x_offset, 105+offset))
 
-        lblPrintTimeLeft = self.fntText.render("Time left: {0}".format(datetime.timedelta(seconds = self.PrintTimeLeft)), 1, (200, 200, 200))
-        self.screen.blit(lblPrintTimeLeft, (112, 90))
-
-        lblCompletion = self.fntText.render("Completion: {0:.1f}%".format(self.Completion), 1, (200, 200, 200))
-        self.screen.blit(lblCompletion, (112, 105))
+        lblCompletion = self.fntText.render("Completion: {0:.1f}%".format(self.Completion), 1, (0, 0, 0))
+        self.screen.blit(lblCompletion, (112+x_offset, 120+offset))
 
         # Temperature Graphing
         # Graph area
@@ -581,7 +596,7 @@ class OctoPiPanel():
     # Reboot system
     def _reboot(self):
         if platform.system() == 'Linux':
-            os.system("reboot")
+            sys.exit()
         else:
             pygame.image.save(self.screen, "screenshot.jpg")
 
